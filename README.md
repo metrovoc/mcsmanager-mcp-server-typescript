@@ -1,11 +1,11 @@
 # MCSManager MCP Server
 
-这是一个基于TypeScript实现的MCSManager MCP服务器，它使用Model Context Protocol (MCP)提供对MCSManager API的访问。
+这是一个基于 TypeScript 实现的 MCSManager MCP 服务器，它使用 Model Context Protocol (MCP)提供对 MCSManager API 的访问。
 
 ## 功能特性
 
-- 使用最新的MCP SDK和StreamableHTTP传输协议
-- 提供对MCSManager API的完整访问
+- 使用最新的 MCP SDK 和 StreamableHTTP 传输协议
+- 提供对 MCSManager API 的完整访问
 - 支持守护进程和实例管理
 - 支持文件操作
 - 支持命令发送
@@ -29,10 +29,10 @@ npm run build
 
 服务器可以通过环境变量进行配置：
 
-- `MCSMANAGER_URL`: MCSManager面板的URL (默认: http://localhost:23333)
-- `MCSMANAGER_API_KEY`: MCSManager API密钥 (必需)
-- `MCP_PORT`: MCP服务器端口 (默认: 3000)
-- `MCP_HOST`: MCP服务器主机 (默认: localhost)
+- `MCSMANAGER_URL`: MCSManager 面板的 URL (默认: http://localhost:23333)
+- `MCSMANAGER_API_KEY`: MCSManager API 密钥 (必需)
+- `MCP_PORT`: MCP 服务器端口 (默认: 3000)
+- `MCP_HOST`: MCP 服务器主机 (默认: localhost)
 
 ## 使用方法
 
@@ -54,22 +54,22 @@ npm run dev
 
 ### 连接到服务器
 
-MCP服务器将在 `http://localhost:3000/mcp` 上运行。你可以使用任何支持MCP的客户端连接到此服务器。
-
-## API资源
-
-服务器提供以下资源：
-
-- `mcsm://daemons` - 获取所有守护进程列表
-- `mcsm://daemons/{daemonId}/instances` - 获取指定守护进程的实例列表
-- `mcsm://daemons/{daemonId}/instances/{instanceId}` - 获取实例详情
-- `mcsm://daemons/{daemonId}/instances/{instanceId}/files/{path*}` - 获取文件列表
-- `mcsm://daemons/{daemonId}/instances/{instanceId}/file-content/{filePath*}` - 获取文件内容
-- `mcsm://overview` - 获取面板概览信息
+MCP 服务器将在 `http://localhost:3000/mcp` 上运行。你可以使用任何支持 MCP 的客户端连接到此服务器。
 
 ## 工具
 
 服务器提供以下工具：
+
+### 获取信息工具
+
+- `get-daemons` - 获取所有守护进程列表
+- `get-instances` - 获取指定守护进程的实例列表
+- `get-instance-detail` - 获取实例详情
+- `get-files` - 获取文件列表
+- `get-file-content` - 获取文件内容
+- `get-overview` - 获取面板概览信息
+
+### 操作工具
 
 - `start-instance` - 启动实例
 - `stop-instance` - 停止实例

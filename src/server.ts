@@ -1,7 +1,4 @@
-import {
-  McpServer,
-  ResourceTemplate,
-} from "@modelcontextprotocol/sdk/server/mcp.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import express from "express";
@@ -45,8 +42,15 @@ export class MCSManagerMCPServer {
    * 注册资源
    */
   private registerResources() {
-    // 守护进程列表资源
-    this.server.resource("daemons", "mcsm://daemons", async (uri) => {
+    // 不再注册资源，所有资源都改为工具
+  }
+
+  /**
+   * 注册工具
+   */
+  private registerTools() {
+    // 获取守护进程列表工具
+    this.server.tool("get-daemons", "获取所有守护进程列表", {}, async () => {
       try {
         const response = await this.api.getDaemons();
         if (response.status !== 200) {
@@ -74,9 +78,9 @@ export class MCSManagerMCPServer {
         });
 
         return {
-          contents: [
+          content: [
             {
-              uri: uri.href,
+              type: "text",
               text: JSON.stringify(daemonsInfo, null, 2),
             },
           ],
@@ -84,28 +88,29 @@ export class MCSManagerMCPServer {
       } catch (error) {
         console.error("Error fetching daemons:", error);
         return {
-          contents: [
+          content: [
             {
-              uri: uri.href,
+              type: "text",
               text: `Error fetching daemons: ${
                 error instanceof Error ? error.message : String(error)
               }`,
             },
           ],
+          isError: true,
         };
       }
     });
 
-    // 实例列表资源
-    this.server.resource(
-      "instances",
-      new ResourceTemplate("mcsm://daemons/{daemonId}/instances", {
-        list: undefined,
-      }),
-      async (uri, { daemonId }) => {
+    // 获取实例列表工具
+    this.server.tool(
+      "get-instances",
+      "获取指定守护进程的实例列表",
+      {
+        daemonId: z.string().describe("守护进程ID"),
+      },
+      async ({ daemonId }) => {
         try {
-          const daemonIdStr = Array.isArray(daemonId) ? daemonId[0] : daemonId;
-          const response = await this.api.getInstances(daemonIdStr);
+          const response = await this.api.getInstances(daemonId);
           if (response.status !== 200) {
             throw new Error(`Failed to get instances: ${response.status}`);
           }
@@ -125,9 +130,9 @@ export class MCSManagerMCPServer {
           });
 
           return {
-            contents: [
+            content: [
               {
-                uri: uri.href,
+                type: "text",
                 text: JSON.stringify(instancesInfo, null, 2),
               },
             ],
@@ -138,34 +143,33 @@ export class MCSManagerMCPServer {
             error
           );
           return {
-            contents: [
+            content: [
               {
-                uri: uri.href,
+                type: "text",
                 text: `Error fetching instances: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
+            isError: true,
           };
         }
       }
     );
 
-    // 实例详情资源
-    this.server.resource(
-      "instance",
-      new ResourceTemplate("mcsm://daemons/{daemonId}/instances/{instanceId}", {
-        list: undefined,
-      }),
-      async (uri, { daemonId, instanceId }) => {
+    // 获取实例详情工具
+    this.server.tool(
+      "get-instance-detail",
+      "获取指定实例的详细信息",
+      {
+        daemonId: z.string().describe("守护进程ID"),
+        instanceId: z.string().describe("实例ID"),
+      },
+      async ({ daemonId, instanceId }) => {
         try {
-          const daemonIdStr = Array.isArray(daemonId) ? daemonId[0] : daemonId;
-          const instanceIdStr = Array.isArray(instanceId)
-            ? instanceId[0]
-            : instanceId;
           const response = await this.api.getInstanceDetail(
-            instanceIdStr,
-            daemonIdStr
+            instanceId,
+            daemonId
           );
           if (response.status !== 200) {
             throw new Error(
@@ -191,9 +195,9 @@ export class MCSManagerMCPServer {
           };
 
           return {
-            contents: [
+            content: [
               {
-                uri: uri.href,
+                type: "text",
                 text: JSON.stringify(instanceInfo, null, 2),
               },
             ],
@@ -204,37 +208,35 @@ export class MCSManagerMCPServer {
             error
           );
           return {
-            contents: [
+            content: [
               {
-                uri: uri.href,
+                type: "text",
                 text: `Error fetching instance details: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
+            isError: true,
           };
         }
       }
     );
 
-    // 文件列表资源
-    this.server.resource(
-      "files",
-      new ResourceTemplate(
-        "mcsm://daemons/{daemonId}/instances/{instanceId}/files/{path*}",
-        { list: undefined }
-      ),
-      async (uri, { daemonId, instanceId, path }) => {
+    // 获取文件列表工具
+    this.server.tool(
+      "get-files",
+      "获取指定实例的文件列表",
+      {
+        daemonId: z.string().describe("守护进程ID"),
+        instanceId: z.string().describe("实例ID"),
+        path: z.string().optional().describe("文件路径，可选"),
+      },
+      async ({ daemonId, instanceId, path }) => {
         try {
-          const pathStr = Array.isArray(path) ? path[0] : path;
-          const targetPath = pathStr || "";
-          const daemonIdStr = Array.isArray(daemonId) ? daemonId[0] : daemonId;
-          const instanceIdStr = Array.isArray(instanceId)
-            ? instanceId[0]
-            : instanceId;
+          const targetPath = path || "";
           const response = await this.api.getFileList(
-            instanceIdStr,
-            daemonIdStr,
+            instanceId,
+            daemonId,
             targetPath
           );
           if (response.status !== 200) {
@@ -254,9 +256,9 @@ export class MCSManagerMCPServer {
           };
 
           return {
-            contents: [
+            content: [
               {
-                uri: uri.href,
+                type: "text",
                 text: JSON.stringify(filesInfo, null, 2),
               },
             ],
@@ -267,51 +269,48 @@ export class MCSManagerMCPServer {
             error
           );
           return {
-            contents: [
+            content: [
               {
-                uri: uri.href,
+                type: "text",
                 text: `Error fetching files: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
+            isError: true,
           };
         }
       }
     );
 
-    // 文件内容资源
-    this.server.resource(
-      "file-content",
-      new ResourceTemplate(
-        "mcsm://daemons/{daemonId}/instances/{instanceId}/file-content/{filePath*}",
-        { list: undefined }
-      ),
-      async (uri, { daemonId, instanceId, filePath }) => {
+    // 获取文件内容工具
+    this.server.tool(
+      "get-file-content",
+      "获取指定实例的文件内容",
+      {
+        daemonId: z.string().describe("守护进程ID"),
+        instanceId: z.string().describe("实例ID"),
+        filePath: z.string().describe("文件路径"),
+      },
+      async ({ daemonId, instanceId, filePath }) => {
         try {
           if (!filePath) {
             throw new Error("File path is required");
           }
 
-          const daemonIdStr = Array.isArray(daemonId) ? daemonId[0] : daemonId;
-          const instanceIdStr = Array.isArray(instanceId)
-            ? instanceId[0]
-            : instanceId;
-          const filePathStr = Array.isArray(filePath) ? filePath[0] : filePath;
-
           const response = await this.api.getFileContent(
-            instanceIdStr,
-            daemonIdStr,
-            filePathStr
+            instanceId,
+            daemonId,
+            filePath
           );
           if (response.status !== 200) {
             throw new Error(`Failed to get file content: ${response.status}`);
           }
 
           return {
-            contents: [
+            content: [
               {
-                uri: uri.href,
+                type: "text",
                 text: response.data,
               },
             ],
@@ -319,111 +318,114 @@ export class MCSManagerMCPServer {
         } catch (error) {
           console.error(`Error fetching file content for ${filePath}:`, error);
           return {
-            contents: [
+            content: [
               {
-                uri: uri.href,
+                type: "text",
                 text: `Error fetching file content: ${
                   error instanceof Error ? error.message : String(error)
                 }`,
               },
             ],
+            isError: true,
           };
         }
       }
     );
 
-    // 面板概览资源
-    this.server.resource("overview", "mcsm://overview", async (uri) => {
-      try {
-        const response = await this.api.getOverview();
-        if (response.status !== 200) {
-          throw new Error(`Failed to get overview: ${response.status}`);
-        }
+    // 获取面板概览工具
+    this.server.tool(
+      "get-overview",
+      "获取MCSManager面板概览信息",
+      {},
+      async () => {
+        try {
+          const response = await this.api.getOverview();
+          if (response.status !== 200) {
+            throw new Error(`Failed to get overview: ${response.status}`);
+          }
 
-        const overview = response.data;
-        const overviewInfo = {
-          version: overview.version,
-          specifiedDaemonVersion: overview.specifiedDaemonVersion,
-          process: overview.process,
-          record: overview.record,
-          system: {
-            user: overview.system.user,
-            time: overview.system.time,
-            totalmem: overview.system.totalmem,
-            freemem: overview.system.freemem,
-            type: overview.system.type,
-            version: overview.system.version,
-            node: overview.system.node,
-            hostname: overview.system.hostname,
-            loadavg: overview.system.loadavg,
-            platform: overview.system.platform,
-            release: overview.system.release,
-            uptime: overview.system.uptime,
-            cpu: overview.system.cpu,
-          },
-          remoteCount: {
-            available: overview.remoteCount.available,
-            total: overview.remoteCount.total,
-          },
-          remote: overview.remote.map((daemon: any) => ({
-            version: daemon.version,
-            process: daemon.process,
-            instance: daemon.instance,
+          const overview = response.data;
+          const overviewInfo = {
+            version: overview.version,
+            specifiedDaemonVersion: overview.specifiedDaemonVersion,
+            process: overview.process,
+            record: overview.record,
             system: {
-              type: daemon.system.type,
-              hostname: daemon.system.hostname,
-              platform: daemon.system.platform,
-              release: daemon.system.release,
-              uptime: daemon.system.uptime,
-              cwd: daemon.system.cwd,
-              loadavg: daemon.system.loadavg,
-              freemem: daemon.system.freemem,
-              cpuUsage: daemon.system.cpuUsage,
-              memUsage: daemon.system.memUsage,
-              totalmem: daemon.system.totalmem,
-              processCpu: daemon.system.processCpu,
-              processMem: daemon.system.processMem,
+              user: overview.system.user,
+              time: overview.system.time,
+              totalmem: overview.system.totalmem,
+              freemem: overview.system.freemem,
+              type: overview.system.type,
+              version: overview.system.version,
+              node: overview.system.node,
+              hostname: overview.system.hostname,
+              loadavg: overview.system.loadavg,
+              platform: overview.system.platform,
+              release: overview.system.release,
+              uptime: overview.system.uptime,
+              cpu: overview.system.cpu,
             },
-            uuid: daemon.uuid,
-            ip: daemon.ip,
-            port: daemon.port,
-            prefix: daemon.prefix,
-            available: daemon.available,
-            remarks: daemon.remarks,
-          })),
-        };
+            remoteCount: {
+              available: overview.remoteCount.available,
+              total: overview.remoteCount.total,
+            },
+            remote: overview.remote.map((daemon: any) => ({
+              version: daemon.version,
+              process: daemon.process,
+              instance: daemon.instance,
+              system: {
+                type: daemon.system.type,
+                hostname: daemon.system.hostname,
+                platform: daemon.system.platform,
+                release: daemon.system.release,
+                uptime: daemon.system.uptime,
+                cwd: daemon.system.cwd,
+                loadavg: daemon.system.loadavg,
+                freemem: daemon.system.freemem,
+                cpuUsage: daemon.system.cpuUsage,
+                memUsage: daemon.system.memUsage,
+                totalmem: daemon.system.totalmem,
+                processCpu: daemon.system.processCpu,
+                processMem: daemon.system.processMem,
+              },
+              uuid: daemon.uuid,
+              ip: daemon.ip,
+              port: daemon.port,
+              prefix: daemon.prefix,
+              available: daemon.available,
+              remarks: daemon.remarks,
+            })),
+          };
 
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              text: JSON.stringify(overviewInfo, null, 2),
-            },
-          ],
-        };
-      } catch (error) {
-        console.error("Error fetching overview:", error);
-        return {
-          contents: [
-            {
-              uri: uri.href,
-              text: `Error fetching overview: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            },
-          ],
-        };
+          return {
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(overviewInfo, null, 2),
+              },
+            ],
+          };
+        } catch (error) {
+          console.error("Error fetching overview:", error);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error fetching overview: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+            isError: true,
+          };
+        }
       }
-    });
-  }
+    );
 
-  /**
-   * 注册工具
-   */
-  private registerTools() {
     // 启动实例工具
     this.server.tool(
       "start-instance",
+      "启动指定实例",
       {
         daemonId: z.string().describe("守护进程ID"),
         instanceId: z.string().describe("实例ID"),
@@ -463,6 +465,7 @@ export class MCSManagerMCPServer {
     // 停止实例工具
     this.server.tool(
       "stop-instance",
+      "停止指定实例",
       {
         daemonId: z.string().describe("守护进程ID"),
         instanceId: z.string().describe("实例ID"),
@@ -502,6 +505,7 @@ export class MCSManagerMCPServer {
     // 重启实例工具
     this.server.tool(
       "restart-instance",
+      "重启指定实例",
       {
         daemonId: z.string().describe("守护进程ID"),
         instanceId: z.string().describe("实例ID"),
@@ -541,6 +545,7 @@ export class MCSManagerMCPServer {
     // 强制终止实例工具
     this.server.tool(
       "kill-instance",
+      "强制终止指定实例",
       {
         daemonId: z.string().describe("守护进程ID"),
         instanceId: z.string().describe("实例ID"),
@@ -580,6 +585,7 @@ export class MCSManagerMCPServer {
     // 发送命令工具
     this.server.tool(
       "send-command",
+      "向指定实例发送命令",
       {
         daemonId: z.string().describe("守护进程ID"),
         instanceId: z.string().describe("实例ID"),
@@ -627,6 +633,7 @@ export class MCSManagerMCPServer {
     // 更新文件内容工具
     this.server.tool(
       "update-file",
+      "更新指定实例的文件内容",
       {
         daemonId: z.string().describe("守护进程ID"),
         instanceId: z.string().describe("实例ID"),
