@@ -361,10 +361,6 @@ export class MCSManagerMCPServer {
             uptime: overview.system.uptime,
             cpu: overview.system.cpu,
           },
-          chart: {
-            system: overview.chart.system,
-            request: overview.chart.request,
-          },
           remoteCount: {
             available: overview.remoteCount.available,
             total: overview.remoteCount.total,
@@ -388,7 +384,6 @@ export class MCSManagerMCPServer {
               processCpu: daemon.system.processCpu,
               processMem: daemon.system.processMem,
             },
-            cpuMemChart: daemon.cpuMemChart,
             uuid: daemon.uuid,
             ip: daemon.ip,
             port: daemon.port,
