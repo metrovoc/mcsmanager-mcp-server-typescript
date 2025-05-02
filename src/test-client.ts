@@ -9,7 +9,7 @@ async function main() {
     // 创建客户端
     const client = new Client({
       name: "MCSManager MCP Test Client",
-      version: "1.0.0"
+      version: "1.0.0",
     });
 
     // 连接到服务器
@@ -22,17 +22,23 @@ async function main() {
     // 列出资源
     console.log("\n=== Resources ===");
     const resources = await client.listResources();
-    console.log("Available resources:", resources.resources.map(r => r.uriTemplate));
+    console.log(
+      "Available resources:",
+      resources.resources.map((r) => r.uriTemplate)
+    );
 
     // 获取概览信息
     console.log("\n=== Overview ===");
     const overview = await client.readResource({ uri: "mcsm://overview" });
-    console.log("Overview:", JSON.parse(overview.contents[0].text));
+    console.log("Overview:", JSON.parse(overview.contents[0].text as string));
 
     // 列出工具
     console.log("\n=== Tools ===");
     const tools = await client.listTools();
-    console.log("Available tools:", tools.tools.map(t => t.name));
+    console.log(
+      "Available tools:",
+      tools.tools.map((t) => t.name)
+    );
 
     // 断开连接
     await client.close();
@@ -44,7 +50,7 @@ async function main() {
 }
 
 // 运行测试
-main().catch(error => {
+main().catch((error) => {
   console.error("Unhandled error:", error);
   process.exit(1);
 });
