@@ -40,7 +40,7 @@ export class MCSManagerAPI {
    */
   async getInstances(daemonId: string, page: number = 1, pageSize: number = 10) {
     const response = await this.client.get(
-      `/api/service/remote_service_instances?daemonId=${daemonId}&page=${page}&page_size=${pageSize}&apikey=${this.apiKey}`
+      `/api/service/remote_service_instances?daemonId=${daemonId}&page=${page}&page_size=${pageSize}&apikey=${this.apiKey}&instance_name=&status=&tag=[]`
     );
     return response.data;
   }
