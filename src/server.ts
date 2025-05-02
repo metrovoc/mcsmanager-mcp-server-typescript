@@ -47,68 +47,82 @@ export class MCSManagerMCPServer {
 
   /**
    * 注册工具
+   *
+   * 工具使用说明：
+   * 1. 大多数工具需要daemonId参数，这是守护进程的唯一标识符
+   * 2. daemonId可以通过get-daemons工具获取，返回结果中的id字段即为daemonId
+   * 3. 实例相关操作需要instanceId参数，可通过get-instances工具获取
+   * 4. 所有必填参数不可省略，否则将导致操作失败
+   * 5. 建议先使用get-daemons获取守护进程列表，再使用get-instances获取实例列表
    */
   private registerTools() {
     // 获取守护进程列表工具
-    this.server.tool("get-daemons", "获取所有守护进程列表", {}, async () => {
-      try {
-        // 使用overview接口获取守护进程列表
-        const response = await this.api.getOverview();
-        if (response.status !== 200) {
-          throw new Error(`Failed to get daemons: ${response.status}`);
-        }
+    this.server.tool(
+      "get-daemons",
+      "获取所有守护进程列表 - 无需参数，返回所有可用的守护进程信息，包含daemonId(uuid)等重要数据",
+      {},
+      async () => {
+        try {
+          // 使用overview接口获取守护进程列表
+          const response = await this.api.getOverview();
+          if (response.status !== 200) {
+            throw new Error(`Failed to get daemons: ${response.status}`);
+          }
 
-        // 从overview中提取remote字段作为守护进程列表
-        const daemonsInfo = response.data.remote.map((daemon: any) => {
+          // 从overview中提取remote字段作为守护进程列表
+          const daemonsInfo = response.data.remote.map((daemon: any) => {
+            return {
+              id: daemon.uuid, // 守护进程ID，用于其他工具的daemonId参数
+              name: daemon.remarks,
+              version: daemon.version,
+              status: daemon.available ? "online" : "offline",
+              instances: {
+                running: daemon.instance.running,
+                total: daemon.instance.total,
+              },
+              system: {
+                type: daemon.system.type,
+                platform: daemon.system.platform,
+                hostname: daemon.system.hostname,
+                cpuUsage: daemon.system.cpuUsage,
+                memUsage: daemon.system.memUsage,
+              },
+            };
+          });
+
           return {
-            id: daemon.uuid, // 确保包含daemonid
-            name: daemon.remarks,
-            version: daemon.version,
-            status: daemon.available ? "online" : "offline",
-            instances: {
-              running: daemon.instance.running,
-              total: daemon.instance.total,
-            },
-            system: {
-              type: daemon.system.type,
-              platform: daemon.system.platform,
-              hostname: daemon.system.hostname,
-              cpuUsage: daemon.system.cpuUsage,
-              memUsage: daemon.system.memUsage,
-            },
+            content: [
+              {
+                type: "text",
+                text: JSON.stringify(daemonsInfo, null, 2),
+              },
+            ],
           };
-        });
-
-        return {
-          content: [
-            {
-              type: "text",
-              text: JSON.stringify(daemonsInfo, null, 2),
-            },
-          ],
-        };
-      } catch (error) {
-        console.error("Error fetching daemons:", error);
-        return {
-          content: [
-            {
-              type: "text",
-              text: `Error fetching daemons: ${
-                error instanceof Error ? error.message : String(error)
-              }`,
-            },
-          ],
-          isError: true,
-        };
+        } catch (error) {
+          console.error("Error fetching daemons:", error);
+          return {
+            content: [
+              {
+                type: "text",
+                text: `Error fetching daemons: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+              },
+            ],
+            isError: true,
+          };
+        }
       }
-    });
+    );
 
     // 获取实例列表工具
     this.server.tool(
       "get-instances",
-      "获取指定守护进程的实例列表",
+      "获取指定守护进程的实例列表 - 必须提供daemonId参数(可通过get-daemons工具获取)",
       {
-        daemonId: z.string().describe("守护进程ID"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
       },
       async ({ daemonId }) => {
         try {
@@ -119,7 +133,7 @@ export class MCSManagerMCPServer {
 
           const instancesInfo = response.data.data.map((instance: any) => {
             return {
-              id: instance.instanceUuid,
+              id: instance.instanceUuid, // 实例ID，用于其他工具的instanceId参数
               name: instance.config.nickname,
               status: this.getStatusText(instance.status),
               type: instance.config.type,
@@ -162,10 +176,14 @@ export class MCSManagerMCPServer {
     // 获取实例详情工具
     this.server.tool(
       "get-instance-detail",
-      "获取指定实例的详细信息",
+      "获取指定实例的详细信息 - 必须提供daemonId和instanceId两个参数",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
       },
       async ({ daemonId, instanceId }) => {
         try {
@@ -227,11 +245,17 @@ export class MCSManagerMCPServer {
     // 获取文件列表工具
     this.server.tool(
       "get-files",
-      "获取指定实例的文件列表",
+      "获取指定实例的文件列表 - 必须提供daemonId和instanceId，path参数可选(默认为根目录)",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
-        path: z.string().optional().describe("文件路径，可选"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
+        path: z
+          .string()
+          .describe("文件路径 - 必填，完整的文件路径，例如：/plugins"),
       },
       async ({ daemonId, instanceId, path }) => {
         try {
@@ -288,11 +312,19 @@ export class MCSManagerMCPServer {
     // 获取文件内容工具
     this.server.tool(
       "get-file-content",
-      "获取指定实例的文件内容",
+      "获取指定实例的文件内容 - 必须提供daemonId、instanceId和filePath三个参数",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
-        filePath: z.string().describe("文件路径"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
+        filePath: z
+          .string()
+          .describe(
+            "文件路径 - 必填，完整的文件路径，例如：/server.properties"
+          ),
       },
       async ({ daemonId, instanceId, filePath }) => {
         try {
@@ -337,7 +369,7 @@ export class MCSManagerMCPServer {
     // 获取面板概览工具
     this.server.tool(
       "get-overview",
-      "获取MCSManager面板概览信息",
+      "获取MCSManager面板概览信息 - 无需参数，返回面板完整概览信息，包含系统信息、面板资源使用情况和守护进程列表等",
       {},
       async () => {
         try {
@@ -427,10 +459,14 @@ export class MCSManagerMCPServer {
     // 启动实例工具
     this.server.tool(
       "start-instance",
-      "启动指定实例",
+      "启动指定实例 - 必须提供daemonId和instanceId两个参数，成功返回启动确认信息",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
       },
       async ({ daemonId, instanceId }) => {
         try {
@@ -467,10 +503,14 @@ export class MCSManagerMCPServer {
     // 停止实例工具
     this.server.tool(
       "stop-instance",
-      "停止指定实例",
+      "停止指定实例 - 必须提供daemonId和instanceId两个参数，成功返回停止确认信息",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
       },
       async ({ daemonId, instanceId }) => {
         try {
@@ -507,10 +547,14 @@ export class MCSManagerMCPServer {
     // 重启实例工具
     this.server.tool(
       "restart-instance",
-      "重启指定实例",
+      "重启指定实例 - 必须提供daemonId和instanceId两个参数，成功返回重启确认信息",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
       },
       async ({ daemonId, instanceId }) => {
         try {
@@ -547,10 +591,14 @@ export class MCSManagerMCPServer {
     // 强制终止实例工具
     this.server.tool(
       "kill-instance",
-      "强制终止指定实例",
+      "强制终止指定实例 - 必须提供daemonId和instanceId两个参数，用于紧急情况下强制关闭实例进程",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
       },
       async ({ daemonId, instanceId }) => {
         try {
@@ -587,11 +635,17 @@ export class MCSManagerMCPServer {
     // 发送命令工具
     this.server.tool(
       "send-command",
-      "向指定实例发送命令",
+      "向指定实例发送命令 - 必须提供daemonId、instanceId和command三个参数",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
-        command: z.string().describe("要发送的命令"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
+        command: z
+          .string()
+          .describe("要发送的命令 - 必填，例如：say Hello 或 stop"),
       },
       async ({ daemonId, instanceId, command }) => {
         try {
@@ -635,12 +689,20 @@ export class MCSManagerMCPServer {
     // 更新文件内容工具
     this.server.tool(
       "update-file",
-      "更新指定实例的文件内容",
+      "更新指定实例的文件内容 - 必须提供daemonId、instanceId、filePath和content四个参数",
       {
-        daemonId: z.string().describe("守护进程ID"),
-        instanceId: z.string().describe("实例ID"),
-        filePath: z.string().describe("文件路径"),
-        content: z.string().describe("文件内容"),
+        daemonId: z
+          .string()
+          .describe("守护进程ID - 必填，从get-daemons返回的id字段获取"),
+        instanceId: z
+          .string()
+          .describe("实例ID - 必填，从get-instances返回的id字段获取"),
+        filePath: z
+          .string()
+          .describe(
+            "文件路径 - 必填，完整的文件路径，例如：/server.properties"
+          ),
+        content: z.string().describe("文件内容 - 必填，要写入文件的新内容"),
       },
       async ({ daemonId, instanceId, filePath, content }) => {
         try {
