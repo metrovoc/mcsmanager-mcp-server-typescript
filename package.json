@@ -8,7 +8,20 @@
     "start": "node dist/index.js",
     "dev": "tsc && node dist/index.js",
     "test-client": "tsc && node dist/test-client.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "package": "pkg . --output bin/mcsmanager-mcp"
+  },
+  "bin": "dist/index.js",
+  "pkg": {
+    "targets": [
+      "node18-linux-x64",
+      "node18-macos-x64",
+      "node18-win-x64"
+    ],
+    "assets": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ]
   },
   "keywords": [
     "mcsmanager",
@@ -28,5 +41,8 @@
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
     "zod": "^3.24.3"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
   }
 }

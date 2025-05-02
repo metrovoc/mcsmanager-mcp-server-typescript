@@ -25,3 +25,5 @@ yarn-error.log*
 Thumbs.db
 
 docs_for_apis/
+
+package-lock.json
