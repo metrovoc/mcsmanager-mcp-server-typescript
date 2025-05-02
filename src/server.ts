@@ -52,14 +52,16 @@ export class MCSManagerMCPServer {
     // 获取守护进程列表工具
     this.server.tool("get-daemons", "获取所有守护进程列表", {}, async () => {
       try {
-        const response = await this.api.getDaemons();
+        // 使用overview接口获取守护进程列表
+        const response = await this.api.getOverview();
         if (response.status !== 200) {
           throw new Error(`Failed to get daemons: ${response.status}`);
         }
 
-        const daemonsInfo = response.data.map((daemon: any) => {
+        // 从overview中提取remote字段作为守护进程列表
+        const daemonsInfo = response.data.remote.map((daemon: any) => {
           return {
-            id: daemon.uuid,
+            id: daemon.uuid, // 确保包含daemonid
             name: daemon.remarks,
             version: daemon.version,
             status: daemon.available ? "online" : "offline",
