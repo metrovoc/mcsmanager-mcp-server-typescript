@@ -40,7 +40,8 @@
     "express": "^5.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3",
-    "zod": "^3.24.3"
+    "zod": "^3.24.3",
+    "better-sqlite3": "^8.6.0"
   },
   "devDependencies": {
     "pkg": "^5.8.1"
